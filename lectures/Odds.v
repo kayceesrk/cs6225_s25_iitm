@@ -41,6 +41,24 @@ Proof.
   simpl. trivial.
 Qed.
 
+Lemma odds_len_swap: 
+  forall A : Type, forall lst : list A, forall (a b c : A),
+    length (odds (a::b::c::lst)) = length (odds (b::c::a::lst)).
+Proof.
+  destruct lst.
+  intros; simplify; linear_arithmetic.
+  intros. rewrite lem2. rewrite lem2. rewrite lem2. rewrite lem2. linear_arithmetic.
+Qed.
+
+Theorem lem3: forall m n, m = n -> 1 + m = S n.
+Proof.
+  linear_arithmetic.
+Qed.
+
+Theorem lem4: forall m n, 1 + m = S n -> m = n.
+Proof.
+  linear_arithmetic.
+Qed.
 
 Theorem odds_odd_length: 
   forall A : Type, forall n, forall lst: list A, forall a, 
@@ -48,15 +66,26 @@ Theorem odds_odd_length:
     length (odds lst) = n ->
     length (odds (a::lst)) = n.
 Proof.
-Admitted.
+  induct n.
+  intros. linear_arithmetic.
+  intros. cases lst. simplify. linear_arithmetic. cases lst. simplify. linear_arithmetic. rewrite odds_len_swap. rewrite lem2. rewrite lem2 in H0. apply lem3. apply lem4 in H0. apply IHn. simpl in H. linear_arithmetic. assumption.
+Qed.
+
+Lemma lem5: forall m n,  m = n -> 1 + m = n + 1.
+Proof.
+  linear_arithmetic.
+Qed.
 
 Theorem odds_even_length: 
-  forall A : Type, forall lst: list A, forall a, forall n,
+  forall A : Type,  forall n, forall lst: list A, forall a,
     length lst = 2 * n -> 
     length (odds lst) = n ->
     length (odds (a::lst)) = n + 1.
 Proof.
-Admitted.
+  induct n.
+  intros. cases lst. simplify. linear_arithmetic. simplify. linear_arithmetic.
+  intros. cases lst. simplify. linear_arithmetic. cases lst. simplify. linear_arithmetic. rewrite odds_len_swap. rewrite lem2. rewrite lem2 in H0. apply lem4 in H0. apply lem5. replace (S n) with (n + 1) by ring. apply IHn. simpl in H. linear_arithmetic. assumption.
+Qed.
 
 Lemma lem1: forall {A:Type} (a:A) (lst:list A) n,  
    1 + length (a :: lst) = 2 * n -> 
@@ -81,6 +110,6 @@ Proof.
       eapply odds_odd_length in H1. eassumption. assumption. assumption.
     + assert (n > 0). simpl in H. linear_arithmetic.
       specialize (IHlst (n - 1)). destruct IHlst. apply lem1 in H.
-      apply (odds_even_length A lst a (n - 1)) in H1. linear_arithmetic.
+      apply (odds_even_length A (n - 1) lst a ) in H1. linear_arithmetic.
       assumption. assumption.
 Qed.
