@@ -10,3 +10,5 @@ _site
 *.vos
 *.vok
 *.cache
+*.coq
+*.coq.conf
