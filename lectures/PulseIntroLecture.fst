@@ -1426,7 +1426,7 @@ decreases l //decreases clause is mandatory
   }
 }
 
-(* Mutable ghost variable and somwhat contrived example.
+(* Mutable ghost variable and somewhat contrived example.
 
    Generally, mutable ghost variables from [Pulse.Lib.GhostReference] are useful
    for concurrent programs. Let illustrate this with a sequential program.
