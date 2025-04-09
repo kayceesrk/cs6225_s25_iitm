@@ -395,7 +395,7 @@ ensures Box.pts_to r ('v + 1)
 *)
 
 fn assign2 (#a:Type) (r:ref a) (v:a)
-requires pts_to r 'v //why bother binding this?
+requires pts_to r 'v
 ensures pts_to r v
 {
     r := v;
@@ -413,7 +413,7 @@ ensures
 [@@expect_failure]
 fn incr #a (x:ref int)
 requires
-  exists* w0. pts_to x w
+  exists* w0. pts_to x w0
 ensures
   pts_to x (w0 + 1) //w0 is not in scope here
 {
@@ -454,7 +454,6 @@ ensures
 {
   //show_proof_state;
   with w0. assert (pts_to x w0);
-  //show_proof_state;
   let v = !x; // v:int; _:squash(v==w0); Ctxt=pts_to x v
   x := v + v; //                          ... pts_to x (v + v)
   //show_proof_state;
@@ -495,13 +494,14 @@ let pts_to_diag
         (r:ref (a & a))
         (v:a)
 : slprop
-= pts_to r (v, v)
+= pts_to r (v, v) //points to a pair with the same values
 
 fn double (r:ref (int & int))
 requires pts_to_diag r 'v
 ensures pts_to_diag r (2 * 'v)
 {
   unfold (pts_to_diag r 'v); //What is [unfold]?
+  //show_proof_state;
   let v = !r;
   let v2 = fst v + snd v;
   r := (v2, v2);
@@ -546,6 +546,8 @@ ensures is_point p (fst 'xy + dx, snd 'xy + dy)
   fold (is_point p (x + dx, y + dy));
     //Pulse cannot infer the instantiation of [is_point] when folding it.
 }
+
+(* STOPPED HERE 09/04 *)
 
 (* Package into convenient helper function *)
 ghost
@@ -744,6 +746,7 @@ ensures emp
     }
 }
 
+(* Helper function for [pts_to_or_null] *)
 
 ghost
 fn elim_pts_to_or_null_none #a #p (r:nullable_ref a)
@@ -821,6 +824,41 @@ ensures exists* w. pts_to_or_null r w ** pure (Some? r ==> w == Some v)
     }
 }
 
+(******************************************************************************)
+(* Section: Loops & Recursion*)
+(******************************************************************************)
+
+(*
+
+while ( guard )
+invariant (b:bool). p
+{ body }
+
+Where
+
+* [guard] is a Pulse program that returns a b:bool
+* [body] is a Pulse program that returns unit
+* invariant (b:bool). p is an invariant where
+  + [exists* b. p] must be provable before the loop is entered and as a
+    postcondition of body.
+  + [exists* b. p] is the precondition of the guard, and [p b] is its
+    postcondition, i.e., the [guard] must satisfy:
+
+      requires exists* b. p
+      returns b:bool
+      ensures p
+
+One way to understand the invariant is that it describes program assertions at three different program points.
+
+* When [b==true], the invariant describes the program state at the start of the
+  loop body;
+* when [b==false], the invariant describes the state at the end of the loop;
+* when [b] is undetermined, the invariant describes the property of the program
+  state just before the guard is (re)executed, i.e., at the entry to the loop
+  and at the end of loop body.
+
+*)
+
 fn count_down (x:ref nat)
 requires pts_to x 'v
 ensures pts_to x (0 <: nat) //F* type inference infers this as [int]; force [nat]
@@ -882,7 +920,7 @@ ensures pts_to x (0 <: nat)
         }
         else
         {
-            x := n + 1;
+            x := n + 1; //Loop never terminates
             true
         }
     )
@@ -926,7 +964,7 @@ let rec sum (n:nat)
 = if n = 0 then 0 else n + sum (n - 1)
 
 #push-options "--z3rlimit 20"
-noextract
+noextract //computationally irrelevant
 let rec sum_lemma (n:nat)
 : Lemma (sum n == n * (n + 1) / 2)
 = if n = 0 then ()
@@ -968,10 +1006,13 @@ ensures pure ((n * (n + 1) / 2) == z)
 
 #pop-options
 
+(* Recursive Pulse Programs *)
+
 let rec fib (n:nat) : nat =
   if n <= 1 then 1
   else fib (n - 1) + fib (n - 2)
 
+//See [rec] keyword
 fn rec fib_rec (n:pos) (out:ref (nat & nat))
 requires
     pts_to out 'v
@@ -1280,301 +1321,6 @@ fn copy_app ([@@@ Rust_mut_binder] v:V.vec int)
 }
 
 (******************************************************************************)
-(* Section: Ghost computations *)
-(******************************************************************************)
-
-(*
-
-  + Ghost computatations -- pulse equivalent of Lemmas
-  + Ghost state -- erased (computationally irrelevant) but mutable
-
-*)
-
-[@@expect_failure]
-fn incr_erased_non_ghost (x:erased int)
-requires emp
-returns y:int
-ensures emp ** pure (y == x + 1)
-{
-  let x = reveal x;
-  (x + 1)
-}
-
-ghost
-fn incr_erased (x:erased int)
-requires emp
-returns y:int
-ensures emp ** pure (y == x + 1)
-{
-  let x = reveal x;
-  (x + 1)
-}
-
-[@@expect_failure]
-fn use_incr_erased (x:erased int)
-requires emp
-returns y:int
-ensures emp ** pure (y == x + 1)
-{
-  incr_erased x;
-}
-
-fn use_incr_erased (x:erased int)
-requires emp
-returns y:erased int //erased here
-ensures emp ** pure (y == x + 1)
-{
-  ghost
-  fn wrap (x:erased int)
-  requires emp
-  returns y:erased int
-  ensures emp ** pure (y == x + 1)
-  {
-    let y = incr_erased x;
-    hide y
-  };
-  wrap x
-}
-
-fn use_incr_erased_alt (x:erased int)
-requires emp
-returns y:erased int
-ensures emp ** pure (y == x + 1)
-{
-  call_ghost incr_erased x; //Pulse.Lib.Pervasives.call_ghost
-}
-
-(* using [call_ghost] with multi-argument functions *)
-ghost
-fn add_erased (x y:erased int)
-requires emp
-returns z:int
-ensures emp ** pure (z == x + y)
-{
-  let x = reveal x;
-  let y = reveal y;
-  (x + y)
-}
-
-fn use_add_erased (x y:erased int)
-requires emp
-returns z:erased int
-ensures emp ** pure (z == x + y)
-{
-  call_ghost (add_erased x) y
-}
-
-(* Best to define erased functions rather than using [call_ghost] *)
-ghost
-fn add_erased_erased (x y:erased int)
-requires emp
-returns z:erased int
-ensures emp ** pure (z == x + y)
-{
-  let x = reveal x;
-  let y = reveal y;
-  hide (x + y)
-}
-
-(* Some primitive ghost functions.
-
-   We have seen a few previously: [elim_pts_to_or_null_none] and friends.
-   [rewrite] also.
-*)
-
-(* Here's the signature of [rewrite] *)
-ghost
-fn __rewrite (p q:slprop)
-requires p ** pure (p == q)
-ensures q
-
-(* Many other primitives are also written using [rewrite] and [ghost]
-   computations. For example, [fold], [unfold], etc. *)
-
-(* Recursive predicates *)
-
-open Pulse.Lib.Reference
-
-let rec all_at_most (l:list (ref nat)) (n:nat)
-: slprop
-= match l with
-  | [] -> emp
-  | hd::tl -> exists* (i:nat). pts_to hd i ** pure (i <= n) ** all_at_most tl n
-
-(* Recursive Ghost Lemmas *)
-
-(* Let's weaken [all_at_most l n] to [all_at_most l m] when [n <= m] *)
-
-ghost
-fn rec weaken_at_most (l:list (ref nat)) (n:nat) (m:nat)
-requires all_at_most l n ** pure (n <= m)
-ensures all_at_most l m
-decreases l //decreases clause is mandatory
-{
-  match l {
-    Nil -> { //No syntactic support for []
-      unfold (all_at_most [] n);
-      //show_proof_state;
-      fold (all_at_most [] m);
-    }
-    Cons hd tl -> { //No syntactic support for [hd::tl]
-      unfold (all_at_most (hd::tl) n);
-      weaken_at_most tl n m;
-      //show_proof_state;
-      fold (all_at_most (hd::tl) m);
-    }
-  }
-}
-
-(* Mutable ghost variable and somewhat contrived example.
-
-   Generally, mutable ghost variables from [Pulse.Lib.GhostReference] are useful
-   for concurrent programs. Let illustrate this with a sequential program.
-
-   Goal: share a mutable ref to a function, allow it to be modified internally,
-   but when you get it back the value is reset to the original value.
-*)
-
-(* Can be done simplyf with *)
-
-fn uses_but_resets #a (x:ref a)
-requires pts_to x 'v
-ensures pts_to x 'v
-
-module GR = Pulse.Lib.GhostReference
-
-(* Here's another contrived way. Define the [correlated] predicate to
-   represent the fact that two references are correlated. *)
-let correlated #a (x:ref a) (y:GR.ref a) (v:a)=
-  pts_to x v ** GR.pts_to y #0.5R v
-
-fn use_temp (x:ref int) (y:GR.ref int)
-requires exists* v0. correlated x y v0
-ensures exists* v1. correlated x y v1
-{
-  unfold correlated;
-  let v = !x;
-  x := 17; //temporarily mutate x, give to to another function to use with full perm
-  x := v; //but, we're forced to set it back to its original value
-  fold correlated;
-}
-
-#push-options "--print_implicits"
-fn use_correlated ()
-requires emp
-ensures emp
-{
-  let mut x = 17;
-  let g = GR.alloc 17;
-  GR.share g;
-  fold correlated;  // GR.pts_to g #0.5R 17 ** correlated x g 17
-  use_temp x g;     // GR.pts_to g #0.5R 17 ** correlated x g ?v1
-  unfold correlated; // GR.pts_to g #0.5R 17 ** GR.pts_to g #0.5R ?v1 ** pts_to x ?v1
-  GR.gather g;       //this is the crucial step
-                     // GT.pts_to g 17 ** pure (?v1 == 17) ** pts_to x ?v1
-  //show_proof_state;
-  assert (pts_to x 17);
-  GR.free g;
-}
-#pop-options
-
-(******************************************************************************)
-(* Section: Ghost computations *)
-(******************************************************************************)
-
-fn apply (#a:Type0)
-         (#b:a -> Type0)
-         (#pre:a -> slprop)
-         (#post: (x:a -> b x -> slprop))
-         (f: (x:a -> stt (b x) (pre x) (fun y -> post x y)))
-         //[stt] can read and write the state, run forever.
-         (x:a)
-requires pre x
-returns y:b x
-ensures post x y
-{
-  f x
-}
-
-ghost
-fn apply_ghost
-         (#a:Type0)
-         (#b:a -> Type0)
-         (#pre:a -> slprop)
-         (#post: (x:a -> b x -> slprop))
-         (f: (x:a -> stt_ghost (b x) emp_inames (pre x) (fun y -> post x y)))
-         (* [stt_ghost] can read and write ghost state, and must terminate. *)
-         (* [emp_inames] the set of invariants that a computation may open, which
-            is empty here. Ignore this argument for now. *)
-         (x:a)
-requires pre x
-returns y:b x
-ensures post x y
-{
-  f x
-}
-
-(* Universes *)
-
-val stt (a:Type u#a) (i:inames) (pre:slprop) (post: a -> slprop)
-  : Type u#0 //Universe 0 -- infinite loops, can be stored in references
-
-val stt_ghost (a:Type u#a) (i:inames) (pre:slprop) (post: a -> slprop)
-  : Type u#4 //Universe 4 -- total and cannot be stored in references.
-
-(* For more info on universes, see
-   https://fstar-lang.org/tutorial/book/part4/part4_div.html#part4-div *)
-
-noeq
-type ctr = {
-    inv: int -> slprop;
-    next: i:erased int -> stt int (inv i) (fun y -> inv (i + 1) ** pure (y == reveal i));
-    destroy: i:erased int -> stt unit (inv i) (fun _ -> emp)
-}
-
-fn new_counter ()
-requires emp
-returns c:ctr
-ensures c.inv 0
-{
-    open Pulse.Lib.Box;
-    let x = alloc 0;
-    fn next (i:erased int)
-    requires pts_to x i
-    returns j:int
-    ensures pts_to x (i + 1) ** pure (j == reveal i)
-    {
-        let j = !x;
-        x := j + 1;
-        j
-    };
-    fn destroy (i:erased int)
-    requires pts_to x i
-    ensures emp
-    {
-       free x
-    };
-    let c = { inv = pts_to x; next; destroy };
-    rewrite (pts_to x 0) as (c.inv 0);
-    c
-}
-
-fn test_counter ()
-requires emp
-ensures emp
-{
-    let c = new_counter ();
-    let next = c.next;
-    let destroy = c.destroy;
-    let x = next _; //Need to use [next] instead of [c.next]; TODO in Pulse.
-    assert pure (x == 0);
-    let x = next _;
-    assert pure (x == 1);
-    destroy _;
-}
-
-
-(******************************************************************************)
 (* Section: Implication and Universal Quantification *)
 (******************************************************************************)
 
@@ -1638,148 +1384,6 @@ ensures pts_to x 'v
 }
 
 (* Want to clarify that in the simple usage (@==>) hasn't brought us much *)
-
-(* Universal Quantification *)
-
-(* Consider
-
-  let regain_half #a (x:GR.ref a) (v:a) =
-    pts_to x #0.5R v @==> pts_to x v
-
-  from earlier. This definition is not general. [v] at the time of elimintaion
-  has to be the same [v] at the time of introduction.
-
-  Generalise with [exists*]?
-
-*)
-
-let regain_half' #a (x:GR.ref a) (v:a) =
-  (exists* u. pts_to x #0.5R u) @==> pts_to x v
-
-(* Better but, no relation between [u] and [v]. *)
-
-(* We can use [forall] to express the relation between [u] and [v]. *)
-
-let regain_half_q #a (x:GR.ref a) =
-  forall* u. pts_to x #0.5R u @==> pts_to x u
-
-module FA = Pulse.Lib.Forall.Util
-
-(*
-
-//Elimination form
-ghost
-fn FA.elim (#a:Type) (#p:a->vprop) (v:a)
-requires (forall* x. p x)
-ensures p v
-
-//Introduction form
-ghost
-fn FA.intro (#a:Type) (#p:a->vprop)
-     (v:vprop)
-     (f_elim : (x:a -> stt_ghost unit emp_inames v (fun _ -> p x)))
-requires v
-ensures (forall* x. p x)
-
-//Common to use [trades] and [forall] together. Utlility library has:
-
-ghost
-fn elim_forall_imp (#a:Type0) (p q: a -> vprop) (x:a)
-requires (forall* x. p x @==> q x) ** p x
-ensures q x
-
-ghost
-fn intro_forall_imp (#a:Type0) (p q: a -> vprop) (r:vprop)
-         (elim: (u:a -> stt_ghost unit emp_inames
-                          (r ** p u)
-                          (fun _ -> q u)))
-requires r
-ensures forall* x. p x @==> q x
-
-*)
-
-ghost
-fn intro_regain_half_q (x:GR.ref int)
-requires pts_to x 'v
-ensures pts_to x #0.5R 'v ** regain_half_q x
-{
-  ghost
-  fn aux1 (u:int)
-  requires pts_to x #0.5R 'v ** pts_to x #0.5R u
-  ensures pts_to x u
-  {
-    gather x;
-  };
-  GR.share x;
-  FA.intro_forall_imp _ _ _ aux1;
-  fold regain_half_q;
-}
-
-
- //use_regain_half_q$
-ghost
-fn use_regain_half_q (x:GR.ref int)
-requires pts_to x #0.5R 'u ** regain_half_q x
-ensures pts_to x 'u
-{
-  unfold regain_half_q;
-  FA.elim #_ #(fun u -> pts_to x #0.5R u @==> pts_to x u) 'u;
-  //Using FA.elim is quite verbose: we need to specify the quantifier term
-  //again. The way Pulse uses F*’s unifier currently does not allow it to
-  //properly find solutions to some higher-order unification problems.
-  I.elim _ _;
-}
-
-(* Trades and Ghost Steps *)
-
-(* TODO KC: Complex; Study; Explain. *)
-
-(* One can package any ghost computation into a trade. *)
-
-(* One can trade a half permission to pts_to x #one_half u for a full permission
-   to a different value pts_to x v. *)
-let can_update (x:GR.ref int) =
-  forall* u v. pts_to x #0.5R u @==>
-               pts_to x v
-
-ghost
-fn make_can_update (x:GR.ref int)
-requires pts_to x 'w
-ensures pts_to x #0.5R 'w ** can_update x
-{
-  ghost
-  fn aux (u:int)
-  requires pts_to x #0.5R 'w
-  ensures forall* v. pts_to x #0.5R u @==> pts_to x v
-  {
-    ghost
-    fn aux (v:int)
-    requires pts_to x #0.5R 'w ** pts_to x #0.5R u
-    ensures pts_to x v
-    {
-      gather x;
-      x := v;
-    };
-    FA.intro_forall_imp _ _ _ aux;
-  };
-  share x;
-  FA.intro _ aux;
-  fold (can_update x);
-}
-
-
-ghost
-fn update (x:GR.ref int) (k:int)
-requires pts_to x #0.5R 'u ** can_update x
-ensures pts_to x #0.5R k ** can_update x
-{
-  unfold can_update;
-  FA.elim #_ #(fun u -> forall* v. pts_to x #0.5R u @==> pts_to x v) 'u;
-  FA.elim #_ #(fun v -> pts_to x #0.5R 'u @==> pts_to x v) k;
-  I.elim _ _;
-  make_can_update x;
-}
-
 
 (******************************************************************************)
 (* Section: Linked Lists *)

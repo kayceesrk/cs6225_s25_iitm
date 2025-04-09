@@ -815,6 +815,38 @@ ensures exists* w. pts_to_or_null r w ** pure (Some? r ==> w == Some v)
     }
 }
 
+(******************************************************************************)
+(* Section: Loops & Recursion*)
+(******************************************************************************)
+
+(*
+
+while ( guard )
+invariant (b:bool). p
+{ body }
+
+Where
+
+* guard is a Pulse program that returns a b:bool
+* body is a Pulse program that returns unit
+* invariant (b:bool). p is an invariant where
+  + exists* b. p must be provable before the loop is entered and as a postcondition of body.
+  + exists* b. p is the precondition of the guard, and p b is its postcondition, i.e., the guard must satisfy:
+
+      requires exists* b. p
+      returns b:bool
+      ensures p
+  + the postcondition of the entire loop is invariant false.
+
+
+One way to understand the invariant is that it describes program assertions at three different program points.
+
+* When b==true, the invariant describes the program state at the start of the loop body;
+* when b==false, the invariant describes the state at the end of the loop;
+* when b is undetermined, the invariant describes the property of the program state just before the guard is (re)executed, i.e., at the entry to the loop and at the end of loop body.
+
+*)
+
 fn count_down (x:ref nat)
 requires pts_to x 'v
 ensures pts_to x (0 <: nat) //F* type inference infers this as [int]; force [nat]
