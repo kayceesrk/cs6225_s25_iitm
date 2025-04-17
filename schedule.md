@@ -21,4 +21,4 @@ permalink: /schedule/
 | 13 | Evaluation Contexts | 20/03, 21/03, 24/03 | [Coq](https://github.com/kayceesrk/cs6225_s25_iitm/blob/main/lectures/EvaluationContexts.v), [slides (key)]({{site.baseurl}}/lectures/6_evaluation_contexts.key), [slides (pdf)]({{site.baseurl}}/lectures/6_evaluation_contexts.pdf) | |
 | 13 | Hoare Logic | 24/03, 26/03, 27/03, 02/04 | [Coq](https://github.com/kayceesrk/cs6225_s25_iitm/blob/main/lectures/HoareLogic.v), [slides (key)]({{site.baseurl}}/lectures/7_Hoare_Logic.key), [slides (pdf)]({{site.baseurl}}/lectures/7_Hoare_Logic.pdf) | | 
 | 14 | Effectful Programming in F\* | 02/04, 03/04, 04/04 | [fst]({{site.baseurl}}/lectures/Fstar_effects.fst) | |
-| 15 | Pulse -- concurrent separation logic | 04/04, 07/04, 09/04 | [fst]({{site.baseurl}}/lectures/PulseIntro.fst) | [book](https://fstar-lang.org/tutorial/book/pulse/pulse.html) |
+| 15 | Pulse -- concurrent separation logic | 04/04, 07/04, 09/04, 11/04, 16/04, 17/04 | [fst]({{site.baseurl}}/lectures/PulseIntro.fst) | [book](https://fstar-lang.org/tutorial/book/pulse/pulse.html) |

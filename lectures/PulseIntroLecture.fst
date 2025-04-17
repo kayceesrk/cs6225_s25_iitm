@@ -567,6 +567,7 @@ ensures is_point p (fst 'xy + dx, snd 'xy + dy)
   let y = !p.y;
   p.x := x + dx;
   p.y := y + dy;
+  //show_proof_state;
   fold_is_point p;
 }
 
@@ -587,11 +588,14 @@ ensures emp
     //pts_to x 0 ** pts_to y 0
     with _v. rewrite pts_to x _v as pts_to p.x _v;
     with _v. rewrite pts_to y _v as pts_to p.y _v;
+    //show_proof_state;
     //pts_to p.x 0 ** pts_to p.y 0
     fold_is_point p;
     move p 1 1;
+    //show_proof_state;
     assert (is_point p (1, 1));
     unfold is_point;
+    //show_proof_state;
     //pts_to p.x (fst (1, 1)) ** pts_to p.y (snd (1, 1))
     with _v. rewrite pts_to p.x _v as pts_to x _v;
     with _v. rewrite pts_to p.y _v as pts_to y _v;
@@ -658,7 +662,7 @@ ensures pts_to x #p 'vx ** pts_to y #q 'vy
     {
         result := vy;
     };
-    !result;
+  !result;
 }
 
 fn max_alt #p #q (x y:ref int)
@@ -710,19 +714,20 @@ ensures pts_to_or_null r #p 'v
     match r {
      Some x -> {
         //show_proof_state;
-        rewrite each r as (Some x);
-        //show_proof_state;
+        //rewrite each r as (Some x);
         unfold (pts_to_or_null (Some x) #p 'v);
+        //show_proof_state;
         let o = !x;
         fold (pts_to_or_null (Some x) #p 'v);
         //rewrite each (Some x) as r;
         Some o
      }
      None -> {
+        //show_proof_state;
         rewrite each r as None;
         unfold (pts_to_or_null None #p 'v);
         fold (pts_to_or_null None #p 'v);
-        rewrite each (None #(ref a)) as r;
+        //rewrite each (None #(ref a)) as r;
         None #a
      }
     }
@@ -737,6 +742,7 @@ ensures emp
     match r {
      Some x -> { admit () }
      _ -> {
+        show_proof_state;
         // we only have `r == _` in scope
         // not the negation of the prior branch conditions
         // i.e., unlike F*, we don't have not (Some? r)
@@ -824,6 +830,8 @@ ensures exists* w. pts_to_or_null r w ** pure (Some? r ==> w == Some v)
     }
 }
 
+(* STOPPED HERE 11/04 *)
+
 (******************************************************************************)
 (* Section: Loops & Recursion*)
 (******************************************************************************)
@@ -846,7 +854,7 @@ Where
 
       requires exists* b. p
       returns b:bool
-      ensures p
+      ensures p b
 
 One way to understand the invariant is that it describes program assertions at three different program points.
 
@@ -865,14 +873,19 @@ ensures pts_to x (0 <: nat) //F* type inference infers this as [int]; force [nat
 {
     let mut keep_going = true;
     while (
+      //[exists* b. P] holds
         !keep_going
+      //let b = !keep_going;
+      //[P b] holds
     )
+    //P =
     invariant b.
       exists* (v:nat).
         pts_to keep_going b **
         pts_to x v **
         pure (b == false ==> v == 0)
     {
+      //[P true] holds
         let n = !x;
         if (n = 0)
         {
@@ -882,6 +895,7 @@ ensures pts_to x (0 <: nat) //F* type inference infers this as [int]; force [nat
         {
             x := n - 1;
         }
+      //[exists* b. P] holds
     }
 }
 
@@ -972,7 +986,7 @@ let rec sum_lemma (n:nat)
     sum_lemma (n - 1)
 #pop-options
 
-#push-options "--z3cliopt 'smt.arith.nl=false'"
+//#push-options "--z3cliopt 'smt.arith.nl=false'"
 
 fn isum (n:nat)
 requires emp
@@ -1004,7 +1018,7 @@ ensures pure ((n * (n + 1) / 2) == z)
     !acc;
 }
 
-#pop-options
+//#pop-options
 
 (* Recursive Pulse Programs *)
 
@@ -1129,6 +1143,8 @@ fn write_ip (#t:Type) (arr:array t) (#p:perm) (#s:erased _) (x:t)
 module A = Pulse.Lib.Array
 module R = Pulse.Lib.Reference
 open FStar.SizeT
+
+(* STOPPED HERE 16/04 *)
 
 fn compare
   (#[@@@ Rust_generics_bounds ["PartialEq"; "Copy"]] t:eqtype)
@@ -1258,6 +1274,7 @@ fn copy2
     i := vi +^ 1sz
   };
   // after the loop
+  //show_proof_state;
   with v1 s1. _; //bind existentially bound witnesses from the invariant
   Seq.lemma_eq_elim s1 's2; //call an F* lemma to prove that s1 == 's2
   ()
@@ -1349,6 +1366,8 @@ fn __intro (p q r:slprop)
 requires r
 ensures p @==> q
 
+#push-options "--print_implicits"
+
 let regain_half #a (x:GR.ref a) (v:a) =
   pts_to x #0.5R v @==> pts_to x v
 (* You can gain full permissions if you have half permissions?! WAT!
@@ -1369,9 +1388,11 @@ ensures pts_to x #0.5R 'v ** regain_half x 'v
     GR.gather x;
   };
   GR.share x;
+  //show_proof_state;
   I.intro _ _ _ aux;
   //show_proof_state;
   fold regain_half;
+  //show_proof_state;
 }
 
 ghost
@@ -1384,6 +1405,8 @@ ensures pts_to x 'v
 }
 
 (* Want to clarify that in the simple usage (@==>) hasn't brought us much *)
+
+(* STOPPED HERE 17/04 *)
 
 (******************************************************************************)
 (* Section: Linked Lists *)
@@ -1563,25 +1586,6 @@ ensures is_list x 'l ** pure (n == List.Tot.length 'l)
 
 (* Length, Iteratively, with Trades *)
 
-ghost
-fn tail_for_cons (#t:Type) (v:node_ptr t) (#n:node t) (tl:erased (list t))
-requires
-  pts_to v n
-ensures
-  (is_list n.tail tl @==> is_list (Some v) (n.head::tl))
-{
-  ghost
-  fn aux ()
-  requires
-    pts_to v n ** is_list n.tail tl
-  ensures
-    is_list (Some v) (n.head::tl)
-  {
-    intro_is_list_cons (Some v) v
-  };
-  I.intro _ _ _ aux;
-}
-
 (* Tail of a list
 
 x             tl
@@ -1604,6 +1608,25 @@ But, we have a permission accounting problem:
 The solution is to a "trade".
 
 *)
+
+ghost
+fn tail_for_cons (#t:Type) (v:node_ptr t) (#n:node t) (tl:erased (list t))
+requires
+  pts_to v n
+ensures
+  (is_list n.tail tl @==> is_list (Some v) (n.head::tl))
+{
+  ghost
+  fn aux ()
+  requires
+    pts_to v n ** is_list n.tail tl
+  ensures
+    is_list (Some v) (n.head::tl)
+  {
+    intro_is_list_cons (Some v) v
+  };
+  I.intro _ _ _ aux;
+}
 
 fn tail (#t:Type) (x:llist t)
 requires is_list x 'l ** pure (Some? x) //x is a non-null pointer
