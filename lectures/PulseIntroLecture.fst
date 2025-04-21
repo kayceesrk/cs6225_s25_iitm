@@ -1366,7 +1366,7 @@ fn __intro (p q r:slprop)
 requires r
 ensures p @==> q
 
-#push-options "--print_implicits"
+//#push-options "--print_implicits"
 
 let regain_half #a (x:GR.ref a) (v:a) =
   pts_to x #0.5R v @==> pts_to x v
@@ -1426,7 +1426,14 @@ and node_ptr (t:Type0) = ref (node t)
 //A nullable pointer to a node
 and llist (t:Type0) = option (node_ptr t)
 
-(* Representation predicate linking linked list to logic representation *)
+(*
+        +----M---+      +---------+
+---?--->|        |----->| hd | tl |---?--> ...
+        +--------+      +---------+
+         node_ptr           node
+*)
+
+(* Representation predicate linking linked list to logical representation *)
 let rec is_list #t (x:llist t) (l:list t)
 : Tot slprop (decreases l)
 = match l with
@@ -1561,7 +1568,7 @@ ensures is_list x 'l ** pure (n == List.Tot.length 'l)
       0
     }
     Some vl -> {
-      // |- is_list (Some vl) 'l ** pure (x == Some vl)
+      // |- is_list x 'l ** pure (x == Some vl)
       is_list_case_some x vl;
       // |- (exists* (node:node t) (tl:list t). pts_to vl node **
       //                                        is_list node.tail tl **
@@ -1575,9 +1582,11 @@ ensures is_list x 'l ** pure (n == List.Tot.length 'l)
       // |- pts_to vl node ** is_list node.tail tl ** pure ('l == node.head :: _tl)
       let n = length node.tail;
       //show_proof_state;
+
       // |- pts_to vl node ** is_list node.tail tl ** pure ('l == node.head :: _tl) ** pure (x == Some vl)
       //    pure (n == length node.tail) ** pure (n == List.Tot.length tl)
       intro_is_list_cons x vl;
+      //show_proof_state;
       // |- is_list x (node.head :: _tl)
       (1 + n)
     }
@@ -1638,6 +1647,7 @@ ensures exists* tl.
       //the permission [is_list y tl]
     pure (Cons? 'l /\ tl == Cons?.tl 'l)
 {
+
     let np = Some?.v x;
     is_list_case_some x np;
     with node tl. _;
@@ -1646,6 +1656,8 @@ ensures exists* tl.
     tail_for_cons np tl;
     nd.tail
 }
+
+(* STOPPED HERE 21/04 *)
 
 fn length_iter (#t:Type) (x: llist t)
 requires is_list x 'l
@@ -1699,6 +1711,8 @@ ensures is_list x 'l ** pure (n == List.Tot.length 'l)
     ctr := n + 1;
   };
   with _n ll _sfx. _;
+  //show_proof_state;
+    (* false == Some? ll *)
   is_list_case_none ll; //this tells us that suffix=[]; so n == List.Tot.length 'l
   I.elim _ _;           //regain ownership of x, giving up ll
   let n = !ctr;
@@ -1707,7 +1721,7 @@ ensures is_list x 'l ** pure (n == List.Tot.length 'l)
 
 (* Append, Recursively *)
 
-fn rec append (#t:Type0) (x y:llist t)
+fn rec append' (#t:Type0) (x y:llist t)
 requires is_list x 'l1 ** is_list y 'l2 ** pure (Some? x)
 ensures is_list x ('l1 @ 'l2)
 {
@@ -1737,8 +1751,26 @@ ensures is_list x ('l1 @ 'l2)
       //show_proof_state;
     }
     Some _ -> {
-      append node.tail y;
+      append' node.tail y;
       intro_is_list_cons x np;
+    }
+  }
+}
+
+fn append (#t:Type0) (x y:llist t)
+requires is_list x 'l1 ** is_list y 'l2
+returns r:llist t
+ensures is_list r ('l1 @ 'l2)
+{
+  match x {
+    None -> {
+      is_list_case_none x;
+      elim_is_list_nil x;
+      y
+    }
+    Some _ -> {
+      append' x y;
+      x
     }
   }
 }
