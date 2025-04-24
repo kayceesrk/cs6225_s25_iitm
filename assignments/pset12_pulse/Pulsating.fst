@@ -108,5 +108,5 @@ ensures
 (* Write a function in Pulse that reverses a linked list in place, and show
    that it is correct.
 
-   Note: It is ok for the solution to not be O(n). O(n) solution may make use
+   Note: It is ok for the solution to not be O(n). The solution may make use
    of functions that we have seen in the lectures. *)
