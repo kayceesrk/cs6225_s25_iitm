@@ -105,8 +105,8 @@ ensures
 (* List reverse (20 points) *)
 (******************************************************************************)
 
-(* Write a function in Pulse that reverses a linked list in place, and show
+(* Write a function in Pulse that reverses a linked list, and show
    that it is correct.
 
-   Note: It is ok for the solution to not be O(n). The solution may make use
-   of functions that we have seen in the lectures. *)
+   Note: It is okay for the solution not to be O(n). The solution may use 
+   functions we have seen in the lectures. *)
