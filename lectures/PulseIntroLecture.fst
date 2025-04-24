@@ -1647,7 +1647,6 @@ ensures exists* tl.
       //the permission [is_list y tl]
     pure (Cons? 'l /\ tl == Cons?.tl 'l)
 {
-
     let np = Some?.v x;
     is_list_case_some x np;
     with node tl. _;
@@ -1667,6 +1666,7 @@ ensures is_list x 'l ** pure (n == List.Tot.length 'l)
   let mut cur = x;
   let mut ctr = 0;
   I.refl (is_list x 'l); //initialize the trade for the invariant
+  //show_proof_state;
   while (
     let v = !cur;
     Some? v
@@ -1713,7 +1713,9 @@ ensures is_list x 'l ** pure (n == List.Tot.length 'l)
   with _n ll _sfx. _;
   //show_proof_state;
     (* false == Some? ll *)
+
   is_list_case_none ll; //this tells us that suffix=[]; so n == List.Tot.length 'l
+  //show_proof_state;
   I.elim _ _;           //regain ownership of x, giving up ll
   let n = !ctr;
   n
@@ -1766,6 +1768,7 @@ ensures is_list r ('l1 @ 'l2)
     None -> {
       is_list_case_none x;
       elim_is_list_nil x;
+      //show_proof_state;
       y
     }
     Some _ -> {
