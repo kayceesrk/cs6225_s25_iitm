@@ -23,4 +23,5 @@ permalink: /schedule/
 | 14 | Effectful Programming in F\* | 02/04, 03/04, 04/04 | 2 | [fst]({{site.baseurl}}/lectures/Fstar_effects.fst) | |
 | 15 | Pulse -- concurrent separation logic | 04/04, 07/04, 09/04, 11/04, 16/04, 17/04, 21/04, 23/04 | 7.5 | [fst]({{site.baseurl}}/lectures/PulseIntro.fst) | [book](https://fstar-lang.org/tutorial/book/pulse/pulse.html) |
 
+<br/>
 Total lecture hours = 45.
